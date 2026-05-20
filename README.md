@@ -68,6 +68,8 @@ CRITICAL: N | HIGH: N | MEDIUM: N | LOW: N
 OVERALL: PASS | REVIEW REQUIRED | BLOCK
 ```
 
+After the terminal output, the skill renders a Cantina-branded HTML report (orange-on-black, glass panels, severity-coded findings) and opens it in your default browser. Reports are timestamped self-contained HTML in your system temp dir — no internet roundtrip and nothing leaves your machine.
+
 ## Layout
 
 ```
@@ -78,7 +80,9 @@ clawchain/
 │   └── clawchain.md          ← Claude Code slash-command shim
 └── skills/
     └── clawchain/
-        └── SKILL.md          ← full audit spec (3 vectors, 19 checks)
+        ├── SKILL.md          ← full audit spec (3 vectors, 19 checks)
+        └── scripts/
+            └── render_report.py  ← Cantina-branded HTML report renderer
 ```
 
 ## Source

@@ -161,6 +161,71 @@ Severity thresholds:
 
 ---
 
+## Branded HTML Report
+
+After printing the terminal output, **always** render the findings as a Cantina-branded HTML report and open it in the user's default browser. This is part of the standard procedure — never skip it.
+
+### Step A — Serialize findings to JSON
+
+Write a JSON file to `/tmp/clawchain-findings.json` with this exact shape:
+
+```json
+{
+  "project_path": "<absolute path that was audited>",
+  "timestamp": "<ISO-8601 UTC, e.g. 2026-05-20T14:42:00Z>",
+  "vectors": {
+    "pip":    {"scanned": <n>, "findings": <n>},
+    "vscode": {"scanned": <n>, "findings": <n>},
+    "mcp":    {"scanned": <n>, "findings": <n>}
+  },
+  "verdict": "PASS" | "REVIEW REQUIRED" | "BLOCK",
+  "severity_counts": {"CRITICAL": <n>, "HIGH": <n>, "MEDIUM": <n>, "LOW": <n>},
+  "findings": [
+    {
+      "severity": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",
+      "vector":   "pip" | "vscode" | "mcp",
+      "target":   "<package name@version, extension id, or server name>",
+      "evidence": "<file:line or config path with key>",
+      "why":      "<one or two sentences — why this is dangerous>",
+      "fix":      "<one concrete command or config change>"
+    }
+  ]
+}
+```
+
+Rules:
+- `severity_counts` must match the count of findings at each severity in the array.
+- `vectors[*].findings` must match the per-vector finding counts.
+- `target` and `evidence` must be specific — `requests==2.6.0` not `a pip dep`; `~/.claude.json :: mcpServers.foo` not `your MCP config`.
+- For PASS scans, `findings` is an empty array but the JSON is still written and the report is still opened.
+
+### Step B — Render and open
+
+Invoke the renderer:
+
+```bash
+python3 <skill-dir>/scripts/render_report.py /tmp/clawchain-findings.json
+```
+
+Where `<skill-dir>` is the directory containing this `SKILL.md`. The script will:
+- Write a self-contained HTML report to `/tmp/clawchain-report-<YYYYMMDD-HHMMSS>.html`
+- Print the absolute path of the generated report to stdout
+- Open the report in the OS default browser (`open` on macOS, `xdg-open` on Linux, `start` on Windows)
+
+Pass `--no-open` if (and only if) the user has explicitly asked not to launch a browser — e.g. they piped the audit through CI. In that case, print the path so they can open it themselves.
+
+### Step C — Confirm to the user
+
+After the renderer returns, print one short line:
+
+```
+Report opened: /var/folders/.../clawchain-report-20260520-140711.html
+```
+
+Use the actual path printed by the script. Do not re-summarize the findings — the report and the terminal output already cover them.
+
+---
+
 ## Risk Classification
 
 | Finding | Risk Level |
