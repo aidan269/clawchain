@@ -1,3 +1,8 @@
+---
+name: clawchain
+description: Audits a developer environment for supply-chain attack surface across the three vectors AI tooling has made most dangerous — pip packages, VS Code extensions, and MCP servers. Use when a user wants to audit dependencies, check for typosquats or malicious packages, audit MCP server configs, assess VS Code extension trust, scan for hardcoded credentials in agent configs, or estimate supply-chain risk in their dev environment. Scans the project plus the developer's global VS Code and MCP configs, queries OSV for known vulns, and returns a severity-ranked finding list (CRITICAL / HIGH / MEDIUM / LOW) with one concrete remediation per finding. Final verdict is PASS, REVIEW REQUIRED, or BLOCK.
+---
+
 # Clawchain — Dev Environment Supply-Chain Audit
 
 ## Overview
