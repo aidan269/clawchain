@@ -88,12 +88,6 @@ Built from two tweets by [Darshan Yadav (@DarshanSays)](https://x.com/DarshanSay
 - [Supply chain crisis tweet](https://x.com/DarshanSays/status/2057098732873908503) — the threat model for dev environments has changed
 - [Agentic attack surface tweet](https://x.com/DarshanSays/status/2057029849550856375) — 24/7 agents amplify the blast radius of any compromised dep
 
-## Sibling plugins
-
-- [aidan269/clowasp](https://github.com/aidan269/clowasp) — OWASP Agentic Top 10 pipeline auditor
-- [aidan269/clawtsuite](https://github.com/aidan269/clawtsuite) — OpenClaw skill auditor against Cantina's 6-point standard
-- [aidan269/clawrmes](https://github.com/aidan269/clawrmes) — ToxicSkills / ClawHub supply chain malware detector
-
 ## License
 
 MIT
