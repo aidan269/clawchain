@@ -199,6 +199,23 @@ Rules:
 - `target` and `evidence` must be specific — `requests==2.6.0` not `a pip dep`; `~/.claude.json :: mcpServers.foo` not `your MCP config`.
 - For PASS scans, `findings` is an empty array but the JSON is still written and the report is still opened.
 
+### Step A.5 — (Optional) Enrich with AI-generated remediation
+
+If `ANTHROPIC_API_KEY` is set in the environment, call the enrichment script to attach a 2-part remediation block (root cause / prevention) on top of the static `fix` already on each finding:
+
+```bash
+python3 <skill-dir>/scripts/enrich_remediation.py /tmp/clawchain-findings.json
+```
+
+The script:
+- Reads the findings JSON, calls Claude Haiku 4.5 once per finding with a cached system prompt
+- Writes `finding["remediation"] = {root_cause, prevention}` back to the same file
+- Deliberately scopes the LLM output to what only judgment can produce — the static `fix` field already covers the immediate command, so the two AI fields add the workflow story and the automated control
+- Is a clean no-op (exit 0, no mutation) when `ANTHROPIC_API_KEY` is unset — the renderer will simply show the static `fix` field
+- Never accepts the API key via chat input or argv — it reads `os.environ['ANTHROPIC_API_KEY']` only
+
+Skip this step entirely if the user has not provided a key or has explicitly asked to run offline. The renderer handles the absence of `remediation` gracefully.
+
 ### Step B — Render and open
 
 Invoke the renderer:

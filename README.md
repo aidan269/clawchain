@@ -70,6 +70,15 @@ OVERALL: PASS | REVIEW REQUIRED | BLOCK
 
 After the terminal output, the skill renders a Cantina-branded HTML report (orange-on-black, glass panels, severity-coded findings) and opens it in your default browser. Reports are timestamped self-contained HTML in your system temp dir — no internet roundtrip and nothing leaves your machine.
 
+### Optional: AI-generated remediation
+
+If `ANTHROPIC_API_KEY` is exported in your shell, the skill also calls Claude Haiku 4.5 once per finding to attach a 2-part remediation block on top of the static `fix` already on the finding:
+
+- **Root cause** — the process gap or workflow oversight that allowed the finding in this codebase
+- **Prevention** — a specific, automated control (named pre-commit hook, CI check, lint rule, or repo policy) that would have caught it without anyone remembering to check
+
+The two fields are deliberately scoped to what only an LLM can produce — the static `fix` already covers the immediate command or config edit. The script (`scripts/enrich_remediation.py`) caches the system prompt, so a typical 30-finding audit runs in cents. The key is read from `os.environ['ANTHROPIC_API_KEY']` only — never accepted via argv or chat input, in keeping with the credential-handling rules clawchain itself audits for. If the key is unset, the report falls back to the static `fix` strings.
+
 ## Layout
 
 ```

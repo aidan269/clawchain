@@ -88,6 +88,24 @@ def _vector_card(key: str, data: dict) -> str:
     """
 
 
+def _remediation_block(rem: dict | None) -> str:
+    if not rem:
+        return ""
+    return f"""
+        <div class="remediation">
+          <div class="rem-tag">AI remediation</div>
+          <div class="rem-card rem-root">
+            <div class="rem-label">Root cause</div>
+            <div class="rem-text">{_esc(rem.get('root_cause', '—'))}</div>
+          </div>
+          <div class="rem-card rem-prevent">
+            <div class="rem-label">Prevention</div>
+            <div class="rem-text">{_esc(rem.get('prevention', '—'))}</div>
+          </div>
+        </div>
+    """
+
+
 def _finding_card(f: dict) -> str:
     sev = (f.get("severity") or "LOW").upper()
     color = SEVERITY_COLORS.get(sev, "#8e8e93")
@@ -104,6 +122,7 @@ def _finding_card(f: dict) -> str:
           <dt>Why</dt><dd>{_esc(f.get('why', '—'))}</dd>
           <dt>Fix</dt><dd>{_esc(f.get('fix', '—'))}</dd>
         </dl>
+        {_remediation_block(f.get('remediation'))}
       </article>
     """
 
@@ -236,6 +255,42 @@ def render(findings: dict) -> str:
   .empty {{
     background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
     padding: 28px; text-align: center; color: var(--muted);
+  }}
+
+  .remediation {{
+    margin-top: 16px; padding-top: 14px;
+    border-top: 1px solid var(--border);
+    display: grid; gap: 8px;
+  }}
+  .rem-tag {{
+    font-size: 10px; color: var(--brand); letter-spacing: 0.14em;
+    text-transform: uppercase; font-weight: 700;
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-bottom: 2px;
+  }}
+  .rem-tag::before {{
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--brand);
+    box-shadow: 0 0 12px var(--brand);
+  }}
+  .rem-card {{
+    background: rgba(0,0,0,0.32);
+    border: 1px solid var(--border); border-radius: 10px;
+    border-left: 3px solid var(--border);
+    padding: 12px 14px;
+  }}
+  .rem-root      {{ border-left-color: #5e5cff; }}
+  .rem-prevent   {{ border-left-color: #34c759; }}
+  .rem-label {{
+    font-size: 10px; color: var(--muted); letter-spacing: 0.10em;
+    text-transform: uppercase; font-weight: 700; margin-bottom: 4px;
+  }}
+  .rem-text {{
+    font-size: 13.5px; line-height: 1.55; color: var(--text);
+  }}
+  .rem-text code {{
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+    background: rgba(0,0,0,0.4); padding: 1px 5px; border-radius: 3px;
   }}
 
   footer {{
