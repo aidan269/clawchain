@@ -1,29 +1,32 @@
 #!/usr/bin/env python3
 """
-clawchain report renderer.
+clawchain warning summary renderer.
 
-Reads a findings JSON file, renders a self-contained Cantina-branded HTML
-report, writes it to a timestamped path under the system temp dir, and
+Reads a warnings JSON file, renders a self-contained Cantina-branded HTML
+summary, writes it to a timestamped path under the system temp dir, and
 opens it in the default browser.
 
-Usage:
-    python3 render_report.py <findings.json> [--no-open]
-    cat findings.json | python3 render_report.py - [--no-open]
+Clawchain is a heads-up tool, not a security audit. The output surfaces
+patterns in dependencies that may be worth a closer look; it does not
+issue findings, verdicts, or audit conclusions.
 
-Findings JSON shape:
+Usage:
+    python3 render_report.py <warnings.json> [--no-open]
+    cat warnings.json | python3 render_report.py - [--no-open]
+
+Warnings JSON shape:
 {
-  "project_path": "/path/audited",
+  "project_path": "/path/scanned",
   "timestamp": "2026-05-20T14:15:30Z",   # optional; auto-filled if missing
   "vectors": {
-    "pip":    {"scanned": N, "findings": N},
-    "vscode": {"scanned": N, "findings": N},
-    "mcp":    {"scanned": N, "findings": N}
+    "pip":    {"scanned": N, "warnings": N},
+    "vscode": {"scanned": N, "warnings": N},
+    "mcp":    {"scanned": N, "warnings": N}
   },
-  "verdict": "PASS" | "REVIEW REQUIRED" | "BLOCK",
-  "severity_counts": {"CRITICAL": N, "HIGH": N, "MEDIUM": N, "LOW": N},
-  "findings": [
-    {"severity": "...", "vector": "pip|vscode|mcp",
-     "target": "...", "evidence": "...", "why": "...", "fix": "..."}
+  "concern_counts": {"high": N, "medium": N, "low": N},
+  "warnings": [
+    {"concern": "high|medium|low", "vector": "pip|vscode|mcp",
+     "target": "...", "evidence": "...", "why": "...", "suggested_fix": "..."}
   ]
 }
 """
@@ -46,17 +49,16 @@ ATLAS_BASE_URL = "https://atlas.cantinasec.com/mcp"
 AGENTSIGHT_URL = "https://cantinasec.com/agentsight"
 
 
-SEVERITY_COLORS = {
-    "CRITICAL": "#ff3b30",
-    "HIGH":     "#ff9500",
-    "MEDIUM":   "#ffcc00",
-    "LOW":      "#8e8e93",
+CONCERN_COLORS = {
+    "high":   "#ff9500",
+    "medium": "#ffcc00",
+    "low":    "#8e8e93",
 }
 
-VERDICT_COLORS = {
-    "PASS":            "#34c759",
-    "REVIEW REQUIRED": "#ff9500",
-    "BLOCK":           "#ff3b30",
+CONCERN_LABELS = {
+    "high":   "Worth checking soon",
+    "medium": "Worth checking",
+    "low":    "Minor pattern to note",
 }
 
 VECTOR_LABELS = {
@@ -82,31 +84,32 @@ def _badge(label: str, color: str, size: str = "md") -> str:
 
 def _vector_card(key: str, data: dict) -> str:
     scanned = data.get("scanned", 0)
-    findings = data.get("findings", 0)
+    # Accept both new ("warnings") and legacy ("findings") keys for safety.
+    warnings = data.get("warnings", data.get("findings", 0))
     label = VECTOR_LABELS.get(key, key)
     return f"""
       <div class="vector-card">
         <div class="vector-label">{_esc(label)}</div>
         <div class="vector-numbers">
           <div><span class="num">{scanned}</span><span class="unit">scanned</span></div>
-          <div><span class="num">{findings}</span><span class="unit">findings</span></div>
+          <div><span class="num">{warnings}</span><span class="unit">warnings</span></div>
         </div>
       </div>
     """
 
 
-def _remediation_block(rem: dict | None) -> str:
+def _context_block(rem: dict | None) -> str:
     if not rem:
         return ""
     return f"""
         <div class="remediation">
-          <div class="rem-tag">AI remediation</div>
+          <div class="rem-tag">Suggested context</div>
           <div class="rem-card rem-root">
-            <div class="rem-label">Root cause</div>
+            <div class="rem-label">Possible reason this slipped in</div>
             <div class="rem-text">{_esc(rem.get('root_cause', '—'))}</div>
           </div>
           <div class="rem-card rem-prevent">
-            <div class="rem-label">Prevention</div>
+            <div class="rem-label">Something that might prevent it next time</div>
             <div class="rem-text">{_esc(rem.get('prevention', '—'))}</div>
           </div>
         </div>
@@ -114,7 +117,7 @@ def _remediation_block(rem: dict | None) -> str:
 
 
 def _atlas_link(f: dict) -> str:
-    """Render an Atlas catalog link for MCP findings if atlas_url is present."""
+    """Render an Atlas catalog link for MCP warnings if atlas_url is present."""
     if f.get("vector") != "mcp":
         return ""
     url = f.get("atlas_url")
@@ -129,23 +132,31 @@ def _atlas_link(f: dict) -> str:
     """
 
 
-def _finding_card(f: dict) -> str:
-    sev = (f.get("severity") or "LOW").upper()
-    color = SEVERITY_COLORS.get(sev, "#8e8e93")
+def _warning_card(f: dict) -> str:
+    # Accept the new "concern" field; fall back to legacy "severity" if older
+    # producers emit it. Map legacy CRITICAL down to high — we no longer
+    # distinguish the two.
+    concern_raw = (f.get("concern") or f.get("severity") or "low").lower()
+    if concern_raw == "critical":
+        concern_raw = "high"
+    concern = concern_raw if concern_raw in CONCERN_COLORS else "low"
+    color = CONCERN_COLORS[concern]
+    concern_label = CONCERN_LABELS[concern]
     vector_label = VECTOR_LABELS.get(f.get("vector", ""), f.get("vector", "—"))
+    fix_text = f.get("suggested_fix") or f.get("fix", "—")
     return f"""
       <article class="finding" style="border-left-color:{color};">
         <header class="finding-head">
-          {_badge(sev, color)}
+          {_badge(concern_label, color)}
           <span class="finding-vector">{_esc(vector_label)}</span>
           <span class="finding-target">{_esc(f.get('target', '—'))}</span>
         </header>
         <dl class="finding-body">
-          <dt>Evidence</dt><dd><code>{_esc(f.get('evidence', '—'))}</code></dd>
-          <dt>Why</dt><dd>{_esc(f.get('why', '—'))}</dd>
-          <dt>Fix</dt><dd>{_esc(f.get('fix', '—'))}</dd>
+          <dt>What we saw</dt><dd><code>{_esc(f.get('evidence', '—'))}</code></dd>
+          <dt>Why it caught our eye</dt><dd>{_esc(f.get('why', '—'))}</dd>
+          <dt>One thing you could do</dt><dd>{_esc(fix_text)}</dd>
         </dl>
-        {_remediation_block(f.get('remediation'))}
+        {_context_block(f.get('remediation'))}
         {_atlas_link(f)}
       </article>
     """
@@ -154,33 +165,48 @@ def _finding_card(f: dict) -> str:
 def render(findings: dict) -> str:
     ts = findings.get("timestamp") or _dt.datetime.utcnow().isoformat(timespec="seconds") + "Z"
     project = findings.get("project_path", "—")
-    verdict = (findings.get("verdict") or "PASS").upper()
-    verdict_color = VERDICT_COLORS.get(verdict, "#8e8e93")
     vectors = findings.get("vectors", {})
-    counts = findings.get("severity_counts", {})
-    items = findings.get("findings", []) or []
 
-    # Sort findings: CRITICAL → HIGH → MEDIUM → LOW
-    order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
-    items_sorted = sorted(items, key=lambda x: order.get((x.get("severity") or "LOW").upper(), 4))
+    # Accept new keys (concern_counts, warnings) and fall back to legacy ones
+    # (severity_counts, findings) so older producers still render.
+    counts_raw = findings.get("concern_counts") or findings.get("severity_counts") or {}
+    counts: dict[str, int] = {"high": 0, "medium": 0, "low": 0}
+    for k, v in counts_raw.items():
+        kl = k.lower()
+        if kl == "critical":
+            counts["high"] = counts.get("high", 0) + int(v or 0)
+        elif kl in counts:
+            counts[kl] = counts.get(kl, 0) + int(v or 0)
+
+    items = findings.get("warnings") or findings.get("findings") or []
+
+    def _concern_key(x: dict) -> str:
+        raw = (x.get("concern") or x.get("severity") or "low").lower()
+        if raw == "critical":
+            raw = "high"
+        return raw if raw in CONCERN_COLORS else "low"
+
+    order = {"high": 0, "medium": 1, "low": 2}
+    items_sorted = sorted(items, key=lambda x: order.get(_concern_key(x), 3))
+    total = len(items_sorted)
 
     findings_html = (
-        "\n".join(_finding_card(f) for f in items_sorted)
+        "\n".join(_warning_card(f) for f in items_sorted)
         if items_sorted
-        else '<div class="empty">No findings. Supply chain looks clean for this scope.</div>'
+        else '<div class="empty">Nothing unusual surfaced in this scope. That doesn\'t mean everything is safe — just that clawchain didn\'t spot any of the patterns it watches for.</div>'
     )
 
     sev_pills = "".join(
-        f'<div class="sev-pill"><span class="sev-num" style="color:{SEVERITY_COLORS[s]}">{counts.get(s, 0)}</span>'
-        f'<span class="sev-label">{s}</span></div>'
-        for s in ("CRITICAL", "HIGH", "MEDIUM", "LOW")
+        f'<div class="sev-pill"><span class="sev-num" style="color:{CONCERN_COLORS[s]}">{counts.get(s, 0)}</span>'
+        f'<span class="sev-label">{s.capitalize()}</span></div>'
+        for s in ("high", "medium", "low")
     )
 
     return f"""<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>clawchain report — {_esc(project)}</title>
+<title>clawchain warnings — {_esc(project)}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   :root {{
@@ -225,15 +251,16 @@ def render(findings: dict) -> str:
   .hero-row {{ display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }}
   .hero-title {{ font-size: 28px; font-weight: 700; margin: 0 0 4px; }}
   .hero-project {{ color: var(--muted); font-size: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }}
-  .verdict {{
-    display: inline-flex; align-items: center; gap: 10px;
-    padding: 12px 22px; border-radius: 14px;
-    background: {verdict_color}; color: #06060a;
-    font-weight: 800; font-size: 18px; letter-spacing: 0.06em;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+  .totals {{
+    display: inline-flex; align-items: baseline; gap: 8px;
+    color: var(--muted); font-size: 14px;
+  }}
+  .totals strong {{
+    color: var(--text); font-size: 22px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
   }}
 
-  .sev-row {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 24px; }}
+  .sev-row {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 24px; }}
   .sev-pill {{
     background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 12px;
     padding: 14px 16px; display: flex; flex-direction: column; gap: 4px;
@@ -382,7 +409,7 @@ def render(findings: dict) -> str:
   <header class="brandbar">
     <div class="brand">
       <span class="brand-mark">CANTINA · SECURITY</span>
-      <span class="brand-sub">clawchain · supply-chain audit</span>
+      <span class="brand-sub">clawchain · dependency warnings</span>
     </div>
     <span class="ts">{_esc(ts)}</span>
   </header>
@@ -390,40 +417,46 @@ def render(findings: dict) -> str:
   <section class="hero">
     <div class="hero-row">
       <div>
-        <h1 class="hero-title">Supply-Chain Audit</h1>
+        <h1 class="hero-title">Dependency warnings</h1>
         <div class="hero-project">{_esc(project)}</div>
       </div>
-      <div class="verdict">{_esc(verdict)}</div>
+      <div class="totals"><strong>{total}</strong> {('thing' if total == 1 else 'things')} worth a closer look</div>
     </div>
     <div class="sev-row">
       {sev_pills}
     </div>
   </section>
 
-  <h2 class="section">Vectors scanned</h2>
+  <h2 class="section">Where we looked</h2>
   <div class="vectors">
     {_vector_card("pip", vectors.get("pip", {}))}
     {_vector_card("vscode", vectors.get("vscode", {}))}
     {_vector_card("mcp", vectors.get("mcp", {}))}
   </div>
 
-  <h2 class="section">Findings ({len(items_sorted)})</h2>
+  <h2 class="section">What's worth a closer look ({total})</h2>
   {findings_html}
 
   <div class="cta">
     <div class="cta-text">
-      <div class="cta-title">Ready for a managed assessment of your full MCP surface?</div>
-      <div class="cta-sub">Clawchain audits your local environment. AgentSight is the deeper, continuous assessment of every agent, integration, and credential across your org.</div>
+      <div class="cta-title">Want a managed assessment of your full dependency and agent surface?</div>
+      <div class="cta-sub">Clawchain is a local heads-up tool. AgentSight is the deeper, continuous assessment of every agent, integration, and credential across your org.</div>
     </div>
     <a class="cta-btn" href="{AGENTSIGHT_URL}" target="_blank" rel="noopener">
-      Assess with AgentSight <span>→</span>
+      Talk to AgentSight <span>→</span>
     </a>
   </div>
 
   <footer>
+    <p style="margin: 0 0 14px; color: var(--text); font-size: 13px; line-height: 1.6;">
+      <strong style="color: var(--brand);">Clawchain is a heads-up tool, not a security audit.</strong>
+      It surfaces patterns in your dependencies that may be worth a closer look — it doesn't issue findings,
+      verdicts, or audit conclusions. The judgment about whether each pattern is actually a problem is yours.
+      For a managed assessment, consider AgentSight.
+    </p>
     Generated by <strong style="color:var(--brand);">clawchain</strong> ·
     <a href="https://github.com/aidan269/clawchain">github.com/aidan269/clawchain</a><br>
-    Built from <a href="https://x.com/DarshanSays/status/2057098732873908503">@DarshanSays · 2026-05-20</a>:
+    Inspired by <a href="https://x.com/DarshanSays/status/2057098732873908503">@DarshanSays · 2026-05-20</a>:
     "Every VS Code extension, pip package, and MCP server is a potential entry point."
   </footer>
 

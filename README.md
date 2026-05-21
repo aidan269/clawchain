@@ -1,6 +1,8 @@
 # clawchain
 
-A `/cantinasec:` plugin that audits a developer's environment for **supply-chain attack surface** across the three entry points AI tooling has made most dangerous: pip packages, VS Code extensions, and MCP servers.
+A `/cantinasec:` plugin that surfaces **dependency warnings** across the three entry points AI tooling has made most exposed: pip packages, VS Code extensions, and MCP servers.
+
+> **Clawchain is a heads-up tool, not a security audit.** It surfaces patterns in your dependencies that may be worth a closer look. It does not issue findings, verdicts, or audit conclusions. The judgment about whether each warning is a real problem stays with you. For a managed assessment, consider AgentSight.
 
 > "We're in a supply chain security crisis accelerated by AI tooling. Every VS Code extension, pip package, and MCP server is a potential entry point. Breach cost is dropping, breach frequency is rising. The threat model for dev environments has changed."
 > — [Darshan Yadav, 2026-05-20](https://x.com/DarshanSays/status/2057098732873908503)
@@ -21,63 +23,66 @@ Then in Claude Code:
 /cantinasec:clawchain
 ```
 
-## What it checks
+## What patterns it surfaces
 
 ### Vector 1 — Pip packages
-- Unpinned versions (`requests` instead of `requests==2.32.3`) → MEDIUM
-- Typosquats of common packages (Levenshtein ≤ 2) → varies
-- Active OSV / PyPI advisories → HIGH (CRITICAL for RCE-class)
-- Suspicious post-install scripts in `site-packages/` → MEDIUM/CRITICAL
-- `pip install git+https://...` from unknown orgs → HIGH
+- Unpinned versions (`requests` instead of `requests==2.32.3`) → **medium**
+- Typosquat-shaped names against a common-target list (Levenshtein ≤ 2) → **high**
+- Active OSV / PyPI advisories → **high**
+- Suspicious post-install scripts in `site-packages/` → **medium** / **high** (if hitting non-PyPI domain)
+- `pip install git+https://...` from unknown orgs → **high**
+- Missing hash pinning → **low**
 
 ### Vector 2 — VS Code extensions
-- Unverified publishers → MEDIUM (HIGH for single-author with broad scope)
-- Display-name impersonation (e.g. "ESLint" not from `dbaeumer`) → CRITICAL
-- Broad `untrustedWorkspaces` / `virtualWorkspaces` capabilities → HIGH
-- Bundled `node_modules` with OSV hits → HIGH
-- Custom `updateUrl` outside the Marketplace → HIGH
+- Unverified publishers → **medium** (high for single-author with broad scope)
+- Display-name impersonation (e.g. "ESLint" not from `dbaeumer`) → **high**
+- Broad `untrustedWorkspaces` / `virtualWorkspaces` capabilities → **high**
+- Bundled `node_modules` with OSV hits → **high**
+- Custom `updateUrl` outside the Marketplace → **high**
 
 ### Vector 3 — MCP servers
-- Unpinned `npx <pkg>` / `uvx <pkg>` (no `@version`) → HIGH
-- `curl ... | sh` / `wget ... | bash` / `iex (irm ...)` installers → CRITICAL
-- Hardcoded API keys (`sk-*`, `sk_live_*`, `ghp_*`, `AKIA*`, …) in `env` → CRITICAL
-- HTTP (non-HTTPS) server URLs outside localhost → HIGH
-- Unknown npm scopes → MEDIUM
-- `gmail`/`gdrive`/`slack`/`stripe` MCPs at global scope → MEDIUM
-- Destructive tools in `alwaysAllow` (`bash`, `write_file`, `execute_sql`) → HIGH
+- Unpinned `npx <pkg>` / `uvx <pkg>` (no `@version`) → **high**
+- `curl ... | sh` / `wget ... | bash` / `iex (irm ...)` installers → **high**
+- Credential-shaped strings in `env` (`sk-*`, `sk_live_*`, `ghp_*`, `AKIA*`, …) → **high** (worth checking and rotating if confirmed)
+- HTTP (non-HTTPS) server URLs outside localhost → **high**
+- Unknown npm scopes → **medium**
+- `gmail`/`gdrive`/`slack`/`stripe` MCPs at global scope → **medium**
+- Destructive tools in `alwaysAllow` (`bash`, `write_file`, `execute_sql`) → **high**
 
 ## Output
 
 ```
-CLAWCHAIN SUPPLY-CHAIN AUDIT
-============================
+CLAWCHAIN DEPENDENCY WARNINGS
+=============================
 Project: <path>
-Pip manifests scanned: N     | findings: N
-VS Code extensions scanned: N | findings: N
-MCP servers scanned: N       | findings: N
+Pip manifests scanned: N     | warnings: N
+VS Code extensions scanned: N | warnings: N
+MCP servers scanned: N       | warnings: N
 
-CRITICAL: N | HIGH: N | MEDIUM: N | LOW: N
+High: N | Medium: N | Low: N
 
-[CRITICAL] <vector> — <name>
-  Evidence: <file:line or config path>
-  Why: <one-sentence explanation>
-  Fix: <concrete command or config change>
+[HIGH] <vector> — <name>
+  What we saw: <file:line or config path>
+  Why it caught our eye: <one-sentence explanation>
+  One thing you could do: <concrete command or config change>
 
 …
 
-OVERALL: PASS | REVIEW REQUIRED | BLOCK
+Clawchain is a heads-up tool, not a security audit. These are patterns
+worth a closer look — the judgment about whether each one is a real
+problem is yours.
 ```
 
-After the terminal output, the skill renders a Cantina-branded HTML report (orange-on-black, glass panels, severity-coded findings) and opens it in your default browser. Reports are timestamped self-contained HTML in your system temp dir — no internet roundtrip and nothing leaves your machine.
+After the terminal output, the skill renders a Cantina-branded HTML summary (orange-on-black, glass panels, concern-coded warning cards) and opens it in your default browser. Files are timestamped self-contained HTML in your system temp dir — no internet roundtrip and nothing leaves your machine.
 
-### Optional: AI-generated remediation
+### Optional: AI-generated suggested context
 
-If `ANTHROPIC_API_KEY` is exported in your shell, the skill also calls Claude Haiku 4.5 once per finding to attach a 2-part remediation block on top of the static `fix` already on the finding:
+If `ANTHROPIC_API_KEY` is exported in your shell, the skill also calls Claude Haiku 4.5 once per warning to attach a suggested-context block on top of the static `suggested_fix` already on each warning:
 
-- **Root cause** — the process gap or workflow oversight that allowed the finding in this codebase
-- **Prevention** — a specific, automated control (named pre-commit hook, CI check, lint rule, or repo policy) that would have caught it without anyone remembering to check
+- **Possible reason this slipped in** — a plausible workflow story for how this pattern might have ended up in this codebase. Suggestive, not authoritative.
+- **Something that might prevent it next time** — one named, automated control (pre-commit hook, CI check, lint rule, or repo policy) that might catch this pattern.
 
-The two fields are deliberately scoped to what only an LLM can produce — the static `fix` already covers the immediate command or config edit. The script (`scripts/enrich_remediation.py`) caches the system prompt, so a typical 30-finding audit runs in cents. The key is read from `os.environ['ANTHROPIC_API_KEY']` only — never accepted via argv or chat input, in keeping with the credential-handling rules clawchain itself audits for. If the key is unset, the report falls back to the static `fix` strings.
+The two fields are deliberately scoped to what only an LLM can usefully add — the static `suggested_fix` already covers the immediate command or config edit. The script (`scripts/enrich_remediation.py`) caches the system prompt, so a typical 30-warning scan runs in cents. The key is read from `os.environ['ANTHROPIC_API_KEY']` only — never accepted via argv or chat input, in keeping with the credential-handling patterns clawchain itself warns about. If the key is unset, the summary falls back to the static `suggested_fix` strings.
 
 ## Layout
 
@@ -89,9 +94,10 @@ clawchain/
 │   └── clawchain.md          ← Claude Code slash-command shim
 └── skills/
     └── clawchain/
-        ├── SKILL.md          ← full audit spec (3 vectors, 19 checks)
+        ├── SKILL.md          ← full scan spec (3 vectors, 19 checks)
         └── scripts/
-            └── render_report.py  ← Cantina-branded HTML report renderer
+            ├── render_report.py       ← Cantina-branded HTML summary renderer
+            └── enrich_remediation.py  ← optional Claude Haiku enrichment
 ```
 
 ## Source

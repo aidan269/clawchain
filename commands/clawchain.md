@@ -1,10 +1,10 @@
 ---
-description: Audit a dev environment's supply-chain attack surface — pip packages, VS Code extensions, and MCP servers
+description: Surface dependency warnings across pip packages, VS Code extensions, and MCP servers — a heads-up, not an audit
 allowed-tools: Bash, Grep, Glob, Read, Write, WebFetch
 ---
 
-Run the `clawchain` skill to audit this project and the developer's local environment for supply-chain risk across the three entry points Darshan Yadav called out: pip packages, VS Code extensions, and MCP servers. Output a CRITICAL / HIGH / MEDIUM / LOW finding list with concrete remediation for each.
+Run the `clawchain` skill to scan this project and the developer's local environment for dependency patterns worth a closer look across the three vectors Darshan Yadav called out: pip packages, VS Code extensions, and MCP servers. Output a list of warnings ranked by concern (high / medium / low) with a suggested fix for each. Do not issue an audit verdict — clawchain is a heads-up tool.
 
-If `$ARGUMENTS` provides a path, scope the project audit to that directory. Otherwise audit the current working directory plus the user's global VS Code and MCP configs.
+If `$ARGUMENTS` provides a path, scope the project scan to that directory. Otherwise scan the current working directory plus the user's global VS Code and MCP configs.
 
 $ARGUMENTS
