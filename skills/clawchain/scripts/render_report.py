@@ -187,17 +187,31 @@ def render(findings: dict) -> str:
     items_sorted = sorted(items, key=lambda x: order.get(_concern_key(x), 3))
     total = len(items_sorted)
 
-    findings_html = (
-        "\n".join(_warning_card(f) for f in items_sorted)
-        if items_sorted
-        else '<div class="empty">Nothing unusual surfaced in this scope. That doesn\'t mean everything is safe — just that clawchain didn\'t spot any of the patterns it watches for.</div>'
-    )
+    if items_sorted:
+        findings_html = "\n".join(_warning_card(f) for f in items_sorted)
+    else:
+        findings_html = (
+            '<div class="empty">'
+            '<div class="empty-mark">✓</div>'
+            '<div class="empty-headline">Nothing unusual surfaced</div>'
+            '<div>That doesn\'t mean everything is safe — just that clawchain '
+            'didn\'t spot any of the patterns it watches for.</div>'
+            '</div>'
+        )
 
-    sev_pills = "".join(
-        f'<div class="sev-pill"><span class="sev-num" style="color:{CONCERN_COLORS[s]}">{counts.get(s, 0)}</span>'
-        f'<span class="sev-label">{s.capitalize()}</span></div>'
-        for s in ("high", "medium", "low")
-    )
+    # Inline concern summary — sits in the hero next to the totals.
+    sev_summary_parts = []
+    for s in ("high", "medium", "low"):
+        n = counts.get(s, 0)
+        if n == 0:
+            continue
+        sev_summary_parts.append(
+            f'<span class="sev-inline" style="color:{CONCERN_COLORS[s]};">'
+            f'<span class="sev-inline-dot" style="background:{CONCERN_COLORS[s]};'
+            f'box-shadow:0 0 0 3px {CONCERN_COLORS[s]}1f;"></span>'
+            f'{n} {s}</span>'
+        )
+    sev_summary = " ".join(sev_summary_parts) or '<span class="sev-inline-empty">no warnings surfaced</span>'
 
     return f"""<!doctype html>
 <html lang="en">
@@ -275,16 +289,17 @@ def render(findings: dict) -> str:
     border: 1px solid var(--border);
     border-radius: 20px;
     padding: 28px 32px;
-    margin-bottom: 24px;
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    margin-bottom: 22px;
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
     box-shadow:
-      0 1px 2px rgba(15,15,20,0.04),
-      0 10px 32px rgba(15,15,20,0.05),
-      inset 0 1px 0 rgba(255,255,255,0.7);
+      0 2px 4px rgba(15,15,20,0.05),
+      0 20px 48px rgba(15,15,20,0.10),
+      0 40px 80px rgba(15,15,20,0.05),
+      inset 0 1px 0 rgba(255,255,255,0.75);
   }}
   .hero-row {{
-    display: flex; align-items: flex-start; justify-content: space-between;
+    display: flex; align-items: center; justify-content: space-between;
     gap: 24px; flex-wrap: wrap;
   }}
   .hero-title {{
@@ -296,35 +311,33 @@ def render(findings: dict) -> str:
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     word-break: break-all;
   }}
+  .hero-stat {{
+    display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+  }}
   .totals {{
-    display: inline-flex; align-items: baseline; gap: 6px;
+    display: inline-flex; align-items: baseline; gap: 8px;
     color: var(--muted); font-size: 13px; font-weight: 500;
   }}
   .totals strong {{
-    color: var(--text); font-size: 26px; font-weight: 600;
+    color: var(--text); font-size: 28px; font-weight: 600;
     font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
   }}
 
-  /* Concern pills (high / medium / low totals) */
-  .sev-row {{
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
-    margin-top: 22px;
+  /* Inline concern breakdown — sits under the totals */
+  .sev-summary {{
+    display: flex; gap: 14px; align-items: center;
+    font-size: 12.5px; font-weight: 500;
   }}
-  .sev-pill {{
-    background: rgba(255,255,255,0.55);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 12px 14px;
-    display: flex; flex-direction: column; gap: 3px;
+  .sev-inline {{
+    display: inline-flex; align-items: center; gap: 6px;
+    letter-spacing: 0.01em;
+    font-variant-numeric: tabular-nums;
   }}
-  .sev-num {{
-    font-size: 24px; font-weight: 600;
-    font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
-    line-height: 1;
+  .sev-inline-dot {{
+    width: 7px; height: 7px; border-radius: 50%;
   }}
-  .sev-label {{
-    font-size: 11px; color: var(--muted); font-weight: 500;
-    letter-spacing: 0.02em;
+  .sev-inline-empty {{
+    color: var(--muted-2); font-size: 12px; font-style: italic;
   }}
 
   /* Vector cards */
@@ -339,7 +352,10 @@ def render(findings: dict) -> str:
     padding: 16px 18px;
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.65);
+    box-shadow:
+      0 1px 2px rgba(15,15,20,0.04),
+      0 10px 24px rgba(15,15,20,0.06),
+      inset 0 1px 0 rgba(255,255,255,0.7);
   }}
   .vector-label {{
     font-size: 11px; color: var(--muted); font-weight: 500;
@@ -369,12 +385,14 @@ def render(findings: dict) -> str:
     border-left: 3px solid var(--brand);
     border-radius: 14px;
     padding: 18px 22px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
     box-shadow:
-      0 1px 2px rgba(15,15,20,0.03),
-      inset 0 1px 0 rgba(255,255,255,0.6);
+      0 1px 2px rgba(15,15,20,0.04),
+      0 12px 28px rgba(15,15,20,0.07),
+      0 24px 56px rgba(15,15,20,0.04),
+      inset 0 1px 0 rgba(255,255,255,0.65);
   }}
   .finding-head {{
     display: flex; align-items: center; gap: 14px;
@@ -413,10 +431,28 @@ def render(findings: dict) -> str:
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 32px 24px; text-align: center;
-    color: var(--muted); font-size: 14px; line-height: 1.55;
+    padding: 40px 28px; text-align: center;
+    color: var(--muted); font-size: 14px; line-height: 1.6;
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow:
+      0 1px 2px rgba(15,15,20,0.04),
+      0 12px 32px rgba(15,15,20,0.06),
+      inset 0 1px 0 rgba(255,255,255,0.7);
+  }}
+  .empty-mark {{
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: rgba(22,163,74,0.10);
+    color: #16a34a;
+    font-size: 22px; line-height: 1;
+    margin-bottom: 14px;
+    box-shadow: 0 0 0 6px rgba(22,163,74,0.05);
+  }}
+  .empty-headline {{
+    color: var(--text); font-size: 16px; font-weight: 600;
+    letter-spacing: -0.01em; margin-bottom: 6px;
   }}
 
   /* Suggested context block */
@@ -473,9 +509,10 @@ def render(findings: dict) -> str:
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
     box-shadow:
-      0 1px 2px rgba(15,15,20,0.03),
-      0 10px 30px rgba(240,94,0,0.06),
-      inset 0 1px 0 rgba(255,255,255,0.7);
+      0 2px 4px rgba(15,15,20,0.04),
+      0 16px 40px rgba(240,94,0,0.10),
+      0 32px 80px rgba(15,15,20,0.06),
+      inset 0 1px 0 rgba(255,255,255,0.75);
   }}
   .cta-text {{ flex: 1; min-width: 280px; }}
   .cta-title {{
@@ -514,12 +551,13 @@ def render(findings: dict) -> str:
   footer p strong {{ color: var(--text); }}
 
   @media (max-width: 720px) {{
-    .sev-row {{ grid-template-columns: repeat(3, 1fr); gap: 8px; }}
     .vectors {{ grid-template-columns: 1fr; }}
     .hero-row {{ flex-direction: column; align-items: flex-start; }}
+    .hero-stat {{ align-items: flex-start; }}
     .finding-body {{ grid-template-columns: 1fr; gap: 2px 0; }}
     .finding-body dt {{ margin-top: 6px; }}
     .hero-title {{ font-size: 26px; }}
+    .sev-summary {{ gap: 10px; flex-wrap: wrap; }}
   }}
 
   /* Toolbar (Print + Download JSON) */
@@ -603,10 +641,10 @@ def render(findings: dict) -> str:
         <h1 class="hero-title">Dependency breakdown</h1>
         <div class="hero-project">{_esc(project)}</div>
       </div>
-      <div class="totals"><strong>{total}</strong> {('thing' if total == 1 else 'things')} worth a closer look</div>
-    </div>
-    <div class="sev-row">
-      {sev_pills}
+      <div class="hero-stat">
+        <div class="totals"><strong>{total}</strong> {('thing' if total == 1 else 'things')} worth a closer look</div>
+        <div class="sev-summary">{sev_summary}</div>
+      </div>
     </div>
   </section>
 
