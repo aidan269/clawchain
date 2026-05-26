@@ -4,7 +4,7 @@ Surface dependency warnings across the three vectors most exposed by AI tooling:
 
 Inspired by [@DarshanSays](https://x.com/DarshanSays) — "We're in a supply chain security crisis accelerated by AI tooling. Every VS Code extension, pip package, and MCP server is a potential entry point."
 
-> **Clawchain is a heads-up tool, not a security audit.** It surfaces patterns in your dependencies that may be worth a closer look. It does not issue findings, verdicts, or audit conclusions. The judgment about whether each warning is a real problem stays with you. For a managed assessment, consider AgentSight.
+> **Clawchain is a heads-up tool, not a security audit.** It surfaces patterns in your dependencies that may be worth a closer look. It does not issue findings, verdicts, or audit conclusions. The judgment about whether each warning is a real problem stays with you. If something in the breakdown looks worth a closer conversation, the breakdown itself includes an email link to talk to us.
 
 ## What gets scanned
 

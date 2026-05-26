@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 """
-clawchain warning summary renderer.
+clawchain breakdown renderer.
 
 Reads a warnings JSON file, renders a self-contained Cantina-branded HTML
-summary, writes it to a timestamped path under the system temp dir, and
+breakdown, writes it to a timestamped path under the system temp dir, and
 opens it in the default browser.
 
 Clawchain is a heads-up tool, not a security audit. The output surfaces
 patterns in dependencies that may be worth a closer look; it does not
 issue findings, verdicts, or audit conclusions.
+
+The generated HTML includes:
+- A "Print / Save as PDF" button (calls window.print() — print CSS strips
+  the toolbar, CTA, and decorative backgrounds for clean PDFs)
+- A "Download JSON" button (embeds the raw warnings JSON as a data URI
+  so the user can re-feed it to another tool)
 
 Usage:
     python3 render_report.py <warnings.json> [--no-open]
@@ -33,6 +39,7 @@ Warnings JSON shape:
 from __future__ import annotations
 
 import argparse
+import base64
 import datetime as _dt
 import html
 import json
@@ -42,11 +49,10 @@ import sys
 import tempfile
 
 
-# Atlas + AgentSight funnel hooks. Replace these constants when the Atlas
-# catalog and AgentSight assessment surfaces land — the rest of the file
-# already renders them conditionally.
+# Atlas catalog + BD email funnel hooks. Replace when contact preferences
+# or the Atlas catalog change.
 ATLAS_BASE_URL = "https://atlas.cantinasec.com/mcp"
-AGENTSIGHT_URL = "https://cantinasec.com/agentsight"
+CONTACT_EMAIL = "aidan@spearbit.com"
 
 
 CONCERN_COLORS = {
@@ -167,6 +173,13 @@ def render(findings: dict) -> str:
     project = findings.get("project_path", "—")
     vectors = findings.get("vectors", {})
 
+    # Embed a copy of the JSON as a data: URI so the "Download JSON" button
+    # works offline with no server roundtrip.
+    json_blob = json.dumps(findings, indent=2)
+    json_b64 = base64.b64encode(json_blob.encode("utf-8")).decode("ascii")
+    json_data_uri = f"data:application/json;base64,{json_b64}"
+    download_stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+
     # Accept new keys (concern_counts, warnings) and fall back to legacy ones
     # (severity_counts, findings) so older producers still render.
     counts_raw = findings.get("concern_counts") or findings.get("severity_counts") or {}
@@ -206,7 +219,7 @@ def render(findings: dict) -> str:
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>clawchain warnings — {_esc(project)}</title>
+<title>clawchain breakdown — {_esc(project)}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   :root {{
@@ -401,6 +414,75 @@ def render(findings: dict) -> str:
     .vectors {{ grid-template-columns: 1fr; }}
     .hero-row {{ flex-direction: column; align-items: flex-start; }}
   }}
+
+  /* Toolbar (Print + Download JSON) */
+  .toolbar {{
+    display: flex; gap: 8px; flex-wrap: wrap;
+    margin-bottom: 16px;
+  }}
+  .toolbar a, .toolbar button {{
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+    text-decoration: none; cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, border-color 0.15s;
+  }}
+  .toolbar a:hover, .toolbar button:hover {{
+    background: rgba(240,94,0,0.10);
+    border-color: rgba(240,94,0,0.32);
+  }}
+
+  /* Print rules — strip toolbar, CTA, and decorative backgrounds for clean PDFs */
+  @media print {{
+    html, body {{
+      background: white !important;
+      color: #06060a !important;
+    }}
+    .wrap {{ padding: 16px 0 0; max-width: none; }}
+    .toolbar, .cta {{ display: none !important; }}
+    .brandbar {{ margin-bottom: 12px; }}
+    .brand-mark {{ color: #F05E00 !important; }}
+    .brand-sub, .ts {{ color: #555 !important; }}
+    .hero, .vector-card, .finding, .rem-card, .empty {{
+      background: white !important;
+      border-color: #d0d0d0 !important;
+      box-shadow: none !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }}
+    .hero-title, .hero-project, .finding-target, .finding-body dd,
+    .rem-text, .vector-numbers .num {{
+      color: #06060a !important;
+    }}
+    .vector-label, .finding-vector, .finding-body dt, .vector-numbers .unit,
+    .rem-label, .sev-label {{
+      color: #555 !important;
+    }}
+    .finding-body code, .rem-text code {{
+      background: #f3f3f3 !important;
+      color: #06060a !important;
+      border: 1px solid #e0e0e0;
+    }}
+    .totals strong {{ color: #06060a !important; }}
+    .atlas-link {{
+      background: white !important;
+      color: #F05E00 !important;
+      border: 1px solid rgba(240,94,0,0.5) !important;
+    }}
+    .finding, .vector-card {{
+      page-break-inside: avoid;
+    }}
+    footer {{
+      color: #555 !important;
+      border-top: 1px solid #d0d0d0 !important;
+    }}
+    footer a {{ color: #F05E00 !important; }}
+  }}
 </style>
 </head>
 <body>
@@ -409,15 +491,20 @@ def render(findings: dict) -> str:
   <header class="brandbar">
     <div class="brand">
       <span class="brand-mark">CANTINA · SECURITY</span>
-      <span class="brand-sub">clawchain · dependency warnings</span>
+      <span class="brand-sub">clawchain · dependency breakdown</span>
     </div>
     <span class="ts">{_esc(ts)}</span>
   </header>
 
+  <div class="toolbar">
+    <button type="button" onclick="window.print()">⎙ Print / Save as PDF</button>
+    <a href="{json_data_uri}" download="clawchain-breakdown-{download_stamp}.json">⤓ Download JSON</a>
+  </div>
+
   <section class="hero">
     <div class="hero-row">
       <div>
-        <h1 class="hero-title">Dependency warnings</h1>
+        <h1 class="hero-title">Dependency breakdown</h1>
         <div class="hero-project">{_esc(project)}</div>
       </div>
       <div class="totals"><strong>{total}</strong> {('thing' if total == 1 else 'things')} worth a closer look</div>
@@ -439,11 +526,11 @@ def render(findings: dict) -> str:
 
   <div class="cta">
     <div class="cta-text">
-      <div class="cta-title">Want a managed assessment of your full dependency and agent surface?</div>
-      <div class="cta-sub">Clawchain is a local heads-up tool. AgentSight is the deeper, continuous assessment of every agent, integration, and credential across your org.</div>
+      <div class="cta-title">Want to talk through anything you saw here?</div>
+      <div class="cta-sub">Clawchain is a heads-up tool — it points at patterns, you decide what to do. If something in this breakdown looks worth a closer conversation, drop us a line. We can help you triage. No commitment.</div>
     </div>
-    <a class="cta-btn" href="{AGENTSIGHT_URL}" target="_blank" rel="noopener">
-      Talk to AgentSight <span>→</span>
+    <a class="cta-btn" href="mailto:{CONTACT_EMAIL}?subject=clawchain%20breakdown" rel="noopener">
+      Email us <span>→</span>
     </a>
   </div>
 
@@ -484,7 +571,7 @@ def main():
         out = pathlib.Path(args.out)
     else:
         stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-        out = pathlib.Path(tempfile.gettempdir()) / f"clawchain-report-{stamp}.html"
+        out = pathlib.Path(tempfile.gettempdir()) / f"clawchain-breakdown-{stamp}.html"
     out.write_text(html_doc, encoding="utf-8")
 
     print(str(out))

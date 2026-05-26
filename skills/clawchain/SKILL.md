@@ -1,6 +1,6 @@
 ---
 name: clawchain
-description: Surfaces patterns in a developer's dependencies that may be worth a closer look — pip packages, VS Code extensions, and MCP servers. Use when a user wants a heads-up about dependency risk, wants to check for typosquats or unpinned versions, wants to look over their MCP server configuration, wants to spot questionable VS Code extensions, or wants to know whether agent configs contain hardcoded credentials. Clawchain is a heads-up tool, not a security audit — it produces dependency warnings, ranked by how much they're worth looking into (high / medium / low concern). Final judgment about each warning is the reader's. For managed assessments, defer to AgentSight.
+description: Surfaces patterns in a developer's dependencies that may be worth a closer look — pip packages, VS Code extensions, and MCP servers. Use when a user wants a heads-up about dependency risk, wants to check for typosquats or unpinned versions, wants to look over their MCP server configuration, wants to spot questionable VS Code extensions, or wants to know whether agent configs contain hardcoded credentials. Clawchain is a heads-up tool, not a security audit — it produces a dependency breakdown, with warnings ranked by how much they're worth looking into (high / medium / low concern). Final judgment about each warning is the reader's. If something in the breakdown looks worth a closer conversation, the reader is invited to email Cantina.
 ---
 
 # Clawchain — Dependency Warnings
@@ -184,9 +184,9 @@ Do **not** print a verdict line. There is no PASS / REVIEW / BLOCK in the output
 
 ---
 
-## Branded HTML Warning Summary
+## Branded HTML Breakdown
 
-After printing the terminal output, **always** render the warnings as a Cantina-branded HTML summary and open it in the user's default browser. This is part of the standard procedure — never skip it. The renderer does not produce an audit report; the page title, header, and footer all frame the output as a warnings summary.
+After printing the terminal output, **always** render the warnings as a Cantina-branded HTML breakdown and open it in the user's default browser. This is part of the standard procedure — never skip it. The renderer does not produce an audit report; the page title, header, footer, and all UI copy frame the output as a **breakdown** of dependency warnings — never as findings, a report, or an audit. The page includes "Print / Save as PDF" and "Download JSON" buttons in a toolbar.
 
 ### Step A — Serialize warnings to JSON
 
@@ -229,7 +229,7 @@ The file path is still `clawchain-findings.json` for backward compat with the re
 
 #### Atlas URL (MCP warnings only)
 
-Cantina Atlas is an editorially-maintained catalog of public MCP servers — per-server posture, ownership, incident history, and "should I run this?" notes. The clawchain warning summary links to the Atlas entry for each flagged MCP server so the reader can read the deeper editorial context in one click.
+Cantina Atlas is an editorially-maintained catalog of public MCP servers — per-server posture, ownership, incident history, and "should I run this?" notes. The clawchain breakdown links to the Atlas entry for each flagged MCP server so the reader can read the deeper editorial context in one click.
 
 For every `vector == "mcp"` warning, populate `atlas_url` using this rule:
 
@@ -247,7 +247,7 @@ Examples:
 
 Omit the field entirely (do NOT emit `"atlas_url": null` or `""`) if the server is custom / internal and unlikely to ever have a public Atlas entry. The renderer hides the link if absent. Pip and VS Code warnings should never carry `atlas_url`.
 
-This is a forward-looking funnel hook — Atlas itself may not yet host every slug. That's fine; the link still creates the path Atlas → AgentSight that the catalog launch will fill in.
+This is a forward-looking funnel hook — Atlas itself may not yet host every slug. That's fine; the link still creates the path from the breakdown to the catalog that the launch will fill in.
 
 ### Step A.5 — (Optional) Enrich with suggested context
 
@@ -275,9 +275,11 @@ python3 <skill-dir>/scripts/render_report.py /tmp/clawchain-findings.json
 ```
 
 Where `<skill-dir>` is the directory containing this `SKILL.md`. The script will:
-- Write a self-contained HTML summary to `/tmp/clawchain-report-<YYYYMMDD-HHMMSS>.html`
+- Write a self-contained HTML breakdown to `/tmp/clawchain-breakdown-<YYYYMMDD-HHMMSS>.html`
 - Print the absolute path of the generated file to stdout
-- Open the summary in the OS default browser (`open` on macOS, `xdg-open` on Linux, `start` on Windows)
+- Open the breakdown in the OS default browser (`open` on macOS, `xdg-open` on Linux, `start` on Windows)
+
+The page includes a "Print / Save as PDF" button (with print-friendly CSS that strips the toolbar, CTA, and decorative backgrounds) and a "Download JSON" button (the raw warnings JSON is embedded as a data URI). The reader doesn't need any extra tooling to get a PDF or a machine-readable copy.
 
 Pass `--no-open` if (and only if) the user has explicitly asked not to launch a browser — e.g. they piped the scan through CI. In that case, print the path so they can open it themselves.
 
@@ -286,10 +288,10 @@ Pass `--no-open` if (and only if) the user has explicitly asked not to launch a 
 After the renderer returns, print one short line:
 
 ```
-Warning summary opened: /var/folders/.../clawchain-report-20260520-140711.html
+Breakdown opened: /var/folders/.../clawchain-breakdown-20260521-140711.html
 ```
 
-Use the actual path printed by the script. Do not re-summarize the warnings — the summary and the terminal output already cover them.
+Use the actual path printed by the script. Do not re-summarize the warnings — the breakdown and the terminal output already cover them.
 
 ---
 

@@ -2,7 +2,7 @@
 
 A `/cantinasec:` plugin that surfaces **dependency warnings** across the three entry points AI tooling has made most exposed: pip packages, VS Code extensions, and MCP servers.
 
-> **Clawchain is a heads-up tool, not a security audit.** It surfaces patterns in your dependencies that may be worth a closer look. It does not issue findings, verdicts, or audit conclusions. The judgment about whether each warning is a real problem stays with you. For a managed assessment, consider AgentSight.
+> **Clawchain is a heads-up tool, not a security audit.** It surfaces patterns in your dependencies that may be worth a closer look. It does not issue findings, verdicts, or audit conclusions. The judgment about whether each warning is a real problem stays with you. If something in the breakdown looks worth a closer conversation, the breakdown itself includes an email link to talk to us.
 
 > "We're in a supply chain security crisis accelerated by AI tooling. Every VS Code extension, pip package, and MCP server is a potential entry point. Breach cost is dropping, breach frequency is rising. The threat model for dev environments has changed."
 > — [Darshan Yadav, 2026-05-20](https://x.com/DarshanSays/status/2057098732873908503)
@@ -73,7 +73,11 @@ worth a closer look — the judgment about whether each one is a real
 problem is yours.
 ```
 
-After the terminal output, the skill renders a Cantina-branded HTML summary (orange-on-black, glass panels, concern-coded warning cards) and opens it in your default browser. Files are timestamped self-contained HTML in your system temp dir — no internet roundtrip and nothing leaves your machine.
+After the terminal output, the skill renders a Cantina-branded HTML **breakdown** (orange-on-black, glass panels, concern-coded warning cards) and opens it in your default browser. Files are timestamped self-contained HTML in your system temp dir — no internet roundtrip and nothing leaves your machine. The page includes:
+
+- **Print / Save as PDF** — opens the browser print dialog; the page has print-friendly CSS that strips the toolbar, CTA, and decorative backgrounds for clean PDFs
+- **Download JSON** — the raw warnings data, embedded as a data URI so it works offline
+- **Email us** — a low-friction CTA if you want to talk through anything in the breakdown
 
 ### Optional: AI-generated suggested context
 
