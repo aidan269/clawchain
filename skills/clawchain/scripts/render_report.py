@@ -109,17 +109,11 @@ def _context_block(rem: dict | None) -> str:
     if not rem:
         return ""
     return f"""
-        <div class="remediation">
-          <div class="rem-tag">Suggested context</div>
-          <div class="rem-card rem-root">
-            <div class="rem-label">Possible reason this slipped in</div>
-            <div class="rem-text">{_esc(rem.get('root_cause', '—'))}</div>
-          </div>
-          <div class="rem-card rem-prevent">
-            <div class="rem-label">Something that might prevent it next time</div>
-            <div class="rem-text">{_esc(rem.get('prevention', '—'))}</div>
-          </div>
-        </div>
+        <div class="rem-divider"><span>AI-suggested context</span></div>
+        <dl class="finding-body rem-body">
+          <dt>Likely reason</dt><dd>{_esc(rem.get('root_cause', '—'))}</dd>
+          <dt>Prevention</dt><dd>{_esc(rem.get('prevention', '—'))}</dd>
+        </dl>
     """
 
 
@@ -248,7 +242,7 @@ def render(findings: dict) -> str:
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }}
-  .wrap {{ max-width: 980px; margin: 0 auto; padding: 44px 24px 64px; }}
+  .wrap {{ max-width: 1320px; margin: 0 auto; padding: 36px 40px 64px; }}
 
   /* Liquid glass surface — used everywhere */
   .glass {{
@@ -455,44 +449,28 @@ def render(findings: dict) -> str:
     letter-spacing: -0.01em; margin-bottom: 6px;
   }}
 
-  /* Suggested context block */
-  .remediation {{
-    margin-top: 16px; padding-top: 14px;
-    border-top: 1px solid var(--border);
-    display: grid; gap: 8px;
-  }}
-  .rem-tag {{
-    font-size: 10px; color: var(--brand); font-weight: 600;
+  /* AI-suggested context — same grid as finding-body, with a labeled divider */
+  .rem-divider {{
+    margin: 18px 0 12px;
+    display: flex; align-items: center; gap: 12px;
+    color: var(--muted-2);
+    font-size: 10px; font-weight: 600;
     letter-spacing: 0.10em; text-transform: uppercase;
-    display: inline-flex; align-items: center; gap: 7px;
-    margin-bottom: 2px;
   }}
-  .rem-tag::before {{
-    content: ""; width: 6px; height: 6px; border-radius: 50%;
+  .rem-divider::before, .rem-divider::after {{
+    content: ""; flex: 1; height: 1px;
+    background: var(--border);
+  }}
+  .rem-divider span {{
+    display: inline-flex; align-items: center; gap: 6px;
+  }}
+  .rem-divider span::before {{
+    content: ""; width: 5px; height: 5px; border-radius: 50%;
     background: var(--brand);
     box-shadow: 0 0 0 3px rgba(240,94,0,0.18);
   }}
-  .rem-card {{
-    background: rgba(255,255,255,0.55);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--border-strong);
-    border-radius: 10px;
-    padding: 12px 14px;
-  }}
-  .rem-root    {{ border-left-color: #5b5ff0; }}
-  .rem-prevent {{ border-left-color: #16a34a; }}
-  .rem-label {{
-    font-size: 10px; color: var(--muted); font-weight: 600;
-    letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 5px;
-  }}
-  .rem-text {{
-    font-size: 13.5px; line-height: 1.55; color: var(--text-2);
-  }}
-  .rem-text code {{
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
-    background: rgba(15,15,20,0.04);
-    border: 1px solid var(--border);
-    padding: 1px 5px; border-radius: 4px;
+  .rem-body dd {{
+    color: var(--muted);  /* slightly lighter than static fields to mark AI-source */
   }}
 
   /* CTA */
