@@ -209,8 +209,7 @@ Write a JSON file to `/tmp/clawchain-findings.json` with this exact shape:
       "target":   "<package name@version, extension id, or server name>",
       "evidence": "<file:line or config path with key>",
       "why":      "<one or two sentences — why this pattern caught our eye>",
-      "suggested_fix": "<one concrete command or config change worth trying>",
-      "atlas_url": "<optional — Cantina Atlas catalog URL for this MCP server>"
+      "suggested_fix": "<one concrete command or config change worth trying>"
     }
   ]
 }
@@ -226,28 +225,6 @@ Rules:
 - For empty scans, `warnings` is an empty array but the JSON is still written and the summary is still opened.
 
 The file path is still `clawchain-findings.json` for backward compat with the renderer; treat the filename as an opaque address, not a description of what's inside.
-
-#### Atlas URL (MCP warnings only)
-
-Cantina Atlas is an editorially-maintained catalog of public MCP servers — per-server posture, ownership, incident history, and "should I run this?" notes. The clawchain breakdown links to the Atlas entry for each flagged MCP server so the reader can read the deeper editorial context in one click.
-
-For every `vector == "mcp"` warning, populate `atlas_url` using this rule:
-
-1. **Derive a slug from the server's npm package name or `target`:**
-   - `npx @scope/package-name` → `scope-package-name` (strip the leading `@`, replace `/` with `-`)
-   - `npx package-name@version` → `package-name`
-   - Bare server name (`slack-mcp`, `custom-server`) → use the name verbatim
-   - HTTPS URL (`https://mcp.notion.com/mcp`) → use the hostname's first label (`notion`)
-2. **Construct the URL:** `https://atlas.cantinasec.com/mcp/<slug>`
-
-Examples:
-- Target `npx @some-vendor/mcp-tool` → `atlas_url: https://atlas.cantinasec.com/mcp/some-vendor-mcp-tool`
-- Target `slack-mcp` → `atlas_url: https://atlas.cantinasec.com/mcp/slack-mcp`
-- Target with `url: https://mcp.notion.com/mcp` → `atlas_url: https://atlas.cantinasec.com/mcp/notion`
-
-Omit the field entirely (do NOT emit `"atlas_url": null` or `""`) if the server is custom / internal and unlikely to ever have a public Atlas entry. The renderer hides the link if absent. Pip and VS Code warnings should never carry `atlas_url`.
-
-This is a forward-looking funnel hook — Atlas itself may not yet host every slug. That's fine; the link still creates the path from the breakdown to the catalog that the launch will fill in.
 
 ### Step A.5 — (Optional) Enrich with suggested context
 

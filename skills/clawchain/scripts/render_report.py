@@ -49,16 +49,14 @@ import sys
 import tempfile
 
 
-# Atlas catalog + BD email funnel hooks. Replace when contact preferences
-# or the Atlas catalog change.
-ATLAS_BASE_URL = "https://atlas.cantinasec.com/mcp"
+# BD email funnel hook. Replace when contact preferences change.
 CONTACT_EMAIL = "aidan@spearbit.com"
 
 
 CONCERN_COLORS = {
-    "high":   "#ff9500",
-    "medium": "#ffcc00",
-    "low":    "#8e8e93",
+    "high":   "#ea580c",
+    "medium": "#ca8a04",
+    "low":    "#71717a",
 }
 
 CONCERN_LABELS = {
@@ -79,12 +77,15 @@ def _esc(value) -> str:
 
 
 def _badge(label: str, color: str, size: str = "md") -> str:
-    pad = "4px 10px" if size == "sm" else "6px 14px"
-    fs = "11px" if size == "sm" else "13px"
+    fs = "11px" if size == "sm" else "12px"
+    dot = "7px" if size == "sm" else "9px"
     return (
-        f'<span style="display:inline-block;padding:{pad};border-radius:999px;'
-        f'background:{color};color:#06060a;font-weight:700;font-size:{fs};'
-        f'letter-spacing:0.04em;">{_esc(label)}</span>'
+        f'<span style="display:inline-flex;align-items:center;gap:7px;'
+        f'font-weight:600;font-size:{fs};color:{color};'
+        f'letter-spacing:0.02em;">'
+        f'<span style="width:{dot};height:{dot};border-radius:50%;background:{color};'
+        f'box-shadow:0 0 0 4px {color}1f;"></span>'
+        f'{_esc(label)}</span>'
     )
 
 
@@ -122,22 +123,6 @@ def _context_block(rem: dict | None) -> str:
     """
 
 
-def _atlas_link(f: dict) -> str:
-    """Render an Atlas catalog link for MCP warnings if atlas_url is present."""
-    if f.get("vector") != "mcp":
-        return ""
-    url = f.get("atlas_url")
-    if not url:
-        return ""
-    return f"""
-        <a class="atlas-link" href="{_esc(url)}" target="_blank" rel="noopener">
-          <span class="atlas-icon">◎</span>
-          <span>Read the Atlas entry</span>
-          <span class="atlas-arrow">→</span>
-        </a>
-    """
-
-
 def _warning_card(f: dict) -> str:
     # Accept the new "concern" field; fall back to legacy "severity" if older
     # producers emit it. Map legacy CRITICAL down to high — we no longer
@@ -163,7 +148,6 @@ def _warning_card(f: dict) -> str:
           <dt>One thing you could do</dt><dd>{_esc(fix_text)}</dd>
         </dl>
         {_context_block(f.get('remediation'))}
-        {_atlas_link(f)}
       </article>
     """
 
@@ -223,196 +207,319 @@ def render(findings: dict) -> str:
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   :root {{
-    --brand:    #F05E00;
-    --bg:       #06060a;
-    --surface:  rgba(255,255,255,0.06);
-    --border:   rgba(255,255,255,0.11);
-    --text:     #f4f4f5;
-    --muted:    #a1a1aa;
+    --brand:        #F05E00;
+    --brand-soft:   rgba(240,94,0,0.08);
+    --brand-line:   rgba(240,94,0,0.22);
+    --bg:           #fbfaf8;
+    --surface:      rgba(255,255,255,0.66);
+    --surface-2:    rgba(255,255,255,0.92);
+    --border:       rgba(15,15,20,0.07);
+    --border-strong: rgba(15,15,20,0.12);
+    --text:         #0a0a0c;
+    --text-2:       #29292e;
+    --muted:        #6e6e76;
+    --muted-2:      #9a9aa3;
   }}
   * {{ box-sizing: border-box; }}
   html, body {{
     margin: 0;
     background:
-      radial-gradient(ellipse 80% 60% at 85% 0%, rgba(240,94,0,0.18) 0%, transparent 65%),
-      radial-gradient(ellipse 60% 50% at 10% 95%, rgba(100,80,220,0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 88% -10%, rgba(240,94,0,0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 5% 105%, rgba(100,90,220,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 80% 60% at 50% 50%, rgba(255,255,255,0.5) 0%, transparent 100%),
       var(--bg);
     background-attachment: fixed;
     color: var(--text);
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }}
-  .wrap {{ max-width: 980px; margin: 0 auto; padding: 48px 24px 64px; }}
+  .wrap {{ max-width: 980px; margin: 0 auto; padding: 44px 24px 64px; }}
+
+  /* Liquid glass surface — used everywhere */
+  .glass {{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow:
+      0 1px 2px rgba(15,15,20,0.04),
+      0 8px 24px rgba(15,15,20,0.04),
+      inset 0 1px 0 rgba(255,255,255,0.6);
+  }}
 
   header.brandbar {{
     display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 28px;
+    margin-bottom: 24px;
   }}
-  .brand {{ display: flex; align-items: baseline; gap: 12px; }}
+  .brand {{ display: flex; align-items: center; gap: 10px; }}
   .brand-mark {{
-    font-size: 18px; font-weight: 800; color: var(--brand); letter-spacing: 0.08em;
+    font-size: 13px; font-weight: 700; color: var(--brand);
+    letter-spacing: 0.10em; text-transform: uppercase;
   }}
-  .brand-sub {{ color: var(--muted); font-size: 13px; letter-spacing: 0.04em; }}
-  .ts {{ color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }}
+  .brand-sub {{
+    color: var(--muted); font-size: 13px; letter-spacing: 0.01em;
+    font-weight: 500;
+  }}
+  .brand-sub::before {{
+    content: "·"; margin: 0 6px; color: var(--muted-2);
+  }}
+  .ts {{
+    color: var(--muted); font-size: 12px;
+    font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
+  }}
 
+  /* Hero card */
   .hero {{
-    background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
-    padding: 32px; margin-bottom: 28px;
-    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-    box-shadow: 0 4px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow:
+      0 1px 2px rgba(15,15,20,0.04),
+      0 10px 32px rgba(15,15,20,0.05),
+      inset 0 1px 0 rgba(255,255,255,0.7);
   }}
-  .hero-row {{ display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }}
-  .hero-title {{ font-size: 28px; font-weight: 700; margin: 0 0 4px; }}
-  .hero-project {{ color: var(--muted); font-size: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }}
+  .hero-row {{
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 24px; flex-wrap: wrap;
+  }}
+  .hero-title {{
+    font-size: 30px; font-weight: 600; letter-spacing: -0.02em;
+    color: var(--text); margin: 0 0 6px; line-height: 1.1;
+  }}
+  .hero-project {{
+    color: var(--muted); font-size: 13px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    word-break: break-all;
+  }}
   .totals {{
-    display: inline-flex; align-items: baseline; gap: 8px;
-    color: var(--muted); font-size: 14px;
+    display: inline-flex; align-items: baseline; gap: 6px;
+    color: var(--muted); font-size: 13px; font-weight: 500;
   }}
   .totals strong {{
-    color: var(--text); font-size: 22px; font-weight: 700;
-    font-variant-numeric: tabular-nums;
+    color: var(--text); font-size: 26px; font-weight: 600;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
   }}
 
-  .sev-row {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 24px; }}
+  /* Concern pills (high / medium / low totals) */
+  .sev-row {{
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    margin-top: 22px;
+  }}
   .sev-pill {{
-    background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 12px;
-    padding: 14px 16px; display: flex; flex-direction: column; gap: 4px;
+    background: rgba(255,255,255,0.55);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 3px;
   }}
-  .sev-num {{ font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }}
-  .sev-label {{ font-size: 11px; color: var(--muted); letter-spacing: 0.08em; }}
+  .sev-num {{
+    font-size: 24px; font-weight: 600;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+    line-height: 1;
+  }}
+  .sev-label {{
+    font-size: 11px; color: var(--muted); font-weight: 500;
+    letter-spacing: 0.02em;
+  }}
 
+  /* Vector cards */
   .vectors {{
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    margin-bottom: 28px;
   }}
   .vector-card {{
-    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-    padding: 18px 20px;
-    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 18px;
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.65);
   }}
-  .vector-label {{ font-size: 11px; color: var(--muted); letter-spacing: 0.10em; text-transform: uppercase; margin-bottom: 10px; }}
-  .vector-numbers {{ display: flex; gap: 24px; }}
-  .vector-numbers .num {{ font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }}
-  .vector-numbers .unit {{ display: block; font-size: 11px; color: var(--muted); }}
+  .vector-label {{
+    font-size: 11px; color: var(--muted); font-weight: 500;
+    letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px;
+  }}
+  .vector-numbers {{ display: flex; gap: 22px; }}
+  .vector-numbers .num {{
+    font-size: 20px; font-weight: 600;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+  }}
+  .vector-numbers .unit {{
+    display: block; font-size: 11px; color: var(--muted);
+    margin-top: 2px;
+  }}
 
+  /* Section heading */
   h2.section {{
-    font-size: 13px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase;
+    font-size: 12px; color: var(--muted); font-weight: 500;
+    letter-spacing: 0.06em; text-transform: uppercase;
     margin: 0 0 12px;
   }}
 
+  /* Warning cards */
   .finding {{
-    background: var(--surface); border: 1px solid var(--border);
-    border-left: 4px solid var(--brand); border-radius: 12px;
-    padding: 18px 22px; margin-bottom: 12px;
-    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--brand);
+    border-radius: 14px;
+    padding: 18px 22px;
+    margin-bottom: 10px;
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow:
+      0 1px 2px rgba(15,15,20,0.03),
+      inset 0 1px 0 rgba(255,255,255,0.6);
   }}
-  .finding-head {{ display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }}
-  .finding-vector {{ color: var(--muted); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }}
-  .finding-target {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; word-break: break-all; }}
-  .finding-body {{ margin: 0; display: grid; grid-template-columns: 80px 1fr; gap: 6px 16px; }}
-  .finding-body dt {{ color: var(--muted); font-size: 12px; padding-top: 2px; }}
-  .finding-body dd {{ margin: 0; font-size: 14px; line-height: 1.5; }}
+  .finding-head {{
+    display: flex; align-items: center; gap: 14px;
+    flex-wrap: wrap; margin-bottom: 14px;
+  }}
+  .finding-vector {{
+    color: var(--muted); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.05em; text-transform: uppercase;
+  }}
+  .finding-target {{
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13.5px; font-weight: 500;
+    color: var(--text-2); word-break: break-all;
+  }}
+  .finding-body {{
+    margin: 0; display: grid;
+    grid-template-columns: 140px 1fr; gap: 8px 18px;
+  }}
+  .finding-body dt {{
+    color: var(--muted); font-size: 12px; font-weight: 500;
+    padding-top: 2px;
+  }}
+  .finding-body dd {{
+    margin: 0; font-size: 14px; line-height: 1.55;
+    color: var(--text-2);
+  }}
   .finding-body code {{
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
-    background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px;
+    background: rgba(15,15,20,0.04);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 1px 6px; border-radius: 5px;
   }}
 
   .empty {{
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-    padding: 28px; text-align: center; color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 32px 24px; text-align: center;
+    color: var(--muted); font-size: 14px; line-height: 1.55;
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
   }}
 
+  /* Suggested context block */
   .remediation {{
     margin-top: 16px; padding-top: 14px;
     border-top: 1px solid var(--border);
     display: grid; gap: 8px;
   }}
   .rem-tag {{
-    font-size: 10px; color: var(--brand); letter-spacing: 0.14em;
-    text-transform: uppercase; font-weight: 700;
-    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10px; color: var(--brand); font-weight: 600;
+    letter-spacing: 0.10em; text-transform: uppercase;
+    display: inline-flex; align-items: center; gap: 7px;
     margin-bottom: 2px;
   }}
   .rem-tag::before {{
     content: ""; width: 6px; height: 6px; border-radius: 50%;
     background: var(--brand);
-    box-shadow: 0 0 12px var(--brand);
+    box-shadow: 0 0 0 3px rgba(240,94,0,0.18);
   }}
   .rem-card {{
-    background: rgba(0,0,0,0.32);
-    border: 1px solid var(--border); border-radius: 10px;
-    border-left: 3px solid var(--border);
+    background: rgba(255,255,255,0.55);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border-strong);
+    border-radius: 10px;
     padding: 12px 14px;
   }}
-  .rem-root      {{ border-left-color: #5e5cff; }}
-  .rem-prevent   {{ border-left-color: #34c759; }}
+  .rem-root    {{ border-left-color: #5b5ff0; }}
+  .rem-prevent {{ border-left-color: #16a34a; }}
   .rem-label {{
-    font-size: 10px; color: var(--muted); letter-spacing: 0.10em;
-    text-transform: uppercase; font-weight: 700; margin-bottom: 4px;
+    font-size: 10px; color: var(--muted); font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 5px;
   }}
   .rem-text {{
-    font-size: 13.5px; line-height: 1.55; color: var(--text);
+    font-size: 13.5px; line-height: 1.55; color: var(--text-2);
   }}
   .rem-text code {{
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
-    background: rgba(0,0,0,0.4); padding: 1px 5px; border-radius: 3px;
+    background: rgba(15,15,20,0.04);
+    border: 1px solid var(--border);
+    padding: 1px 5px; border-radius: 4px;
   }}
 
-  .atlas-link {{
-    display: inline-flex; align-items: center; gap: 8px;
-    margin-top: 14px; padding: 8px 14px;
-    background: rgba(240,94,0,0.08);
-    border: 1px solid rgba(240,94,0,0.28);
-    border-radius: 999px;
-    color: var(--brand); text-decoration: none;
-    font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
-    transition: background 0.15s, border-color 0.15s;
-  }}
-  .atlas-link:hover {{
-    background: rgba(240,94,0,0.15);
-    border-color: rgba(240,94,0,0.45);
-  }}
-  .atlas-icon {{ font-size: 13px; line-height: 1; }}
-  .atlas-arrow {{ font-size: 14px; line-height: 1; }}
-
+  /* CTA */
   .cta {{
-    margin: 32px 0 16px;
-    background: linear-gradient(135deg, rgba(240,94,0,0.10), rgba(100,80,220,0.06));
-    border: 1px solid rgba(240,94,0,0.25);
-    border-radius: 14px;
-    padding: 20px 24px;
-    display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+    margin: 28px 0 16px;
+    background:
+      linear-gradient(135deg, rgba(240,94,0,0.08) 0%, rgba(100,90,220,0.04) 100%),
+      rgba(255,255,255,0.7);
+    border: 1px solid var(--brand-line);
+    border-radius: 16px;
+    padding: 22px 26px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 18px; flex-wrap: wrap;
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow:
+      0 1px 2px rgba(15,15,20,0.03),
+      0 10px 30px rgba(240,94,0,0.06),
+      inset 0 1px 0 rgba(255,255,255,0.7);
   }}
-  .cta-text {{ flex: 1; min-width: 260px; }}
+  .cta-text {{ flex: 1; min-width: 280px; }}
   .cta-title {{
-    font-size: 15px; font-weight: 700; color: var(--text);
-    margin: 0 0 4px;
+    font-size: 16px; font-weight: 600; letter-spacing: -0.01em;
+    color: var(--text); margin: 0 0 4px;
   }}
-  .cta-sub {{ font-size: 13px; color: var(--muted); line-height: 1.5; }}
+  .cta-sub {{
+    font-size: 13px; color: var(--muted); line-height: 1.55;
+  }}
   .cta-btn {{
     display: inline-flex; align-items: center; gap: 8px;
-    background: var(--brand); color: #06060a;
-    padding: 10px 18px; border-radius: 10px;
-    font-size: 13px; font-weight: 700; letter-spacing: 0.04em;
+    background: var(--brand); color: white;
+    padding: 11px 20px; border-radius: 11px;
+    font-size: 13.5px; font-weight: 600; letter-spacing: 0.01em;
     text-decoration: none;
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow:
+      0 1px 2px rgba(240,94,0,0.25),
+      0 8px 18px rgba(240,94,0,0.22);
   }}
   .cta-btn:hover {{
     transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(240,94,0,0.35);
+    box-shadow:
+      0 1px 2px rgba(240,94,0,0.3),
+      0 12px 22px rgba(240,94,0,0.28);
   }}
 
   footer {{
     margin-top: 32px; padding-top: 24px;
     border-top: 1px solid var(--border);
-    color: var(--muted); font-size: 12px; line-height: 1.6;
+    color: var(--muted); font-size: 12px; line-height: 1.65;
   }}
   footer a {{ color: var(--brand); text-decoration: none; }}
   footer a:hover {{ text-decoration: underline; }}
+  footer p {{ color: var(--text-2); }}
+  footer p strong {{ color: var(--text); }}
 
   @media (max-width: 720px) {{
-    .sev-row {{ grid-template-columns: repeat(2, 1fr); }}
+    .sev-row {{ grid-template-columns: repeat(3, 1fr); gap: 8px; }}
     .vectors {{ grid-template-columns: 1fr; }}
     .hero-row {{ flex-direction: column; align-items: flex-start; }}
+    .finding-body {{ grid-template-columns: 1fr; gap: 2px 0; }}
+    .finding-body dt {{ margin-top: 6px; }}
+    .hero-title {{ font-size: 26px; }}
   }}
 
   /* Toolbar (Print + Download JSON) */
@@ -421,67 +528,56 @@ def render(findings: dict) -> str:
     margin-bottom: 16px;
   }}
   .toolbar a, .toolbar button {{
-    display: inline-flex; align-items: center; gap: 6px;
-    background: rgba(255,255,255,0.04);
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(255,255,255,0.7);
     border: 1px solid var(--border);
-    color: var(--text);
-    padding: 7px 14px;
-    border-radius: 8px;
-    font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+    color: var(--text-2);
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 12.5px; font-weight: 500; letter-spacing: 0;
     text-decoration: none; cursor: pointer;
     font-family: inherit;
-    transition: background 0.15s, border-color 0.15s;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    box-shadow:
+      0 1px 2px rgba(15,15,20,0.04),
+      inset 0 1px 0 rgba(255,255,255,0.7);
   }}
   .toolbar a:hover, .toolbar button:hover {{
-    background: rgba(240,94,0,0.10);
-    border-color: rgba(240,94,0,0.32);
+    background: var(--brand-soft);
+    border-color: var(--brand-line);
+    color: var(--brand);
+  }}
+  .toolbar a:active, .toolbar button:active {{
+    transform: translateY(1px);
   }}
 
-  /* Print rules — strip toolbar, CTA, and decorative backgrounds for clean PDFs */
+  /* Print rules — strip toolbar, CTA, and decorative effects for clean PDFs */
   @media print {{
     html, body {{
       background: white !important;
-      color: #06060a !important;
     }}
     .wrap {{ padding: 16px 0 0; max-width: none; }}
     .toolbar, .cta {{ display: none !important; }}
     .brandbar {{ margin-bottom: 12px; }}
-    .brand-mark {{ color: #F05E00 !important; }}
-    .brand-sub, .ts {{ color: #555 !important; }}
-    .hero, .vector-card, .finding, .rem-card, .empty {{
+    .hero, .vector-card, .finding, .rem-card, .empty, .sev-pill {{
       background: white !important;
       border-color: #d0d0d0 !important;
       box-shadow: none !important;
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
     }}
-    .hero-title, .hero-project, .finding-target, .finding-body dd,
-    .rem-text, .vector-numbers .num {{
-      color: #06060a !important;
-    }}
-    .vector-label, .finding-vector, .finding-body dt, .vector-numbers .unit,
-    .rem-label, .sev-label {{
-      color: #555 !important;
-    }}
     .finding-body code, .rem-text code {{
-      background: #f3f3f3 !important;
-      color: #06060a !important;
+      background: #f5f5f5 !important;
       border: 1px solid #e0e0e0;
-    }}
-    .totals strong {{ color: #06060a !important; }}
-    .atlas-link {{
-      background: white !important;
-      color: #F05E00 !important;
-      border: 1px solid rgba(240,94,0,0.5) !important;
     }}
     .finding, .vector-card {{
       page-break-inside: avoid;
     }}
     footer {{
-      color: #555 !important;
       border-top: 1px solid #d0d0d0 !important;
     }}
-    footer a {{ color: #F05E00 !important; }}
   }}
 </style>
 </head>
