@@ -62,14 +62,29 @@ Skip any path that does not exist — note it as "not present" rather than faili
 
 ## Scan Procedure
 
-Run the three vector scans in order. For each warning, record: vector, concern level (high / medium / low), evidence (file path + line / package name + version), and a suggested fix.
+The scanner is a deterministic Python script in this skill's `scripts/` folder. **Always run it instead of doing the scan by hand.** It's faster, reproducible, and produces the JSON in the exact shape the renderer and enricher expect.
 
-Concern levels:
-- **high** — pattern is unusual or risky enough that it's worth investigating soon (e.g. hardcoded credential prefix, curl-pipe-shell installer, impersonation-looking extension, OSV advisory with RCE).
-- **medium** — pattern is worth checking when there's time (e.g. unpinned version, MCP at global scope, OSV advisory without RCE).
-- **low** — minor pattern worth noting (e.g. missing hash pin, missing publisher metadata).
+```bash
+python3 <skill-dir>/scripts/scan.py <project_path> --out /tmp/clawchain-findings.json
+```
+
+Flags:
+- `--no-osv` — skip OSV.dev queries (offline / fast mode)
+- `--no-env` — skip global VS Code + MCP scans (project-only)
+- `--quiet` — suppress per-vector progress to stderr
+
+The scanner walks the project plus the developer's local environment (unless `--no-env`), surfaces patterns from all three vectors, and writes the warnings JSON to `--out`. Skip Step A's "serialize by hand" instructions below — they're now only a reference for the JSON shape. Just run scan.py, then move to Step A.5 (enrichment) and Step B (render).
+
+Concern levels the scanner assigns:
+- **high** — pattern is unusual or risky enough that it's worth investigating soon (e.g. credential-shaped string in MCP `env`, curl-pipe-shell installer, impersonation-shaped extension display name, OSV advisory hit, unpinned `npx`).
+- **medium** — pattern is worth checking when there's time (e.g. unpinned version, unknown npm scope, gmail/slack/stripe MCP at global scope).
+- **low** — minor pattern worth noting (e.g. no hash pinning in `requirements.txt`).
 
 We deliberately don't have a "critical" level. The tool surfaces patterns; it doesn't render severity verdicts.
+
+### What the scanner checks (reference)
+
+The sub-sections below describe what scan.py looks for. They're for human review / debugging — the actual logic lives in `scripts/scan.py`. You should not re-implement these checks; just call the script.
 
 ### Vector 1 — Pip Packages
 
@@ -188,9 +203,11 @@ Do **not** print a verdict line. There is no PASS / REVIEW / BLOCK in the output
 
 After printing the terminal output, **always** render the warnings as a Cantina-branded HTML breakdown and open it in the user's default browser. This is part of the standard procedure — never skip it. The renderer does not produce an audit report; the page title, header, footer, and all UI copy frame the output as a **breakdown** of dependency warnings — never as findings, a report, or an audit. The page includes "Print / Save as PDF" and "Download JSON" buttons in a toolbar.
 
-### Step A — Serialize warnings to JSON
+### Step A — Get the warnings JSON
 
-Write a JSON file to `/tmp/clawchain-findings.json` with this exact shape:
+You don't write this file by hand — `scripts/scan.py` writes it for you when you run the scan above. **Default output path is `/tmp/clawchain-findings.json`**, which is exactly what the enricher and renderer read next.
+
+The shape below is for reference only (e.g. when debugging or hand-fixing the JSON):
 
 ```json
 {

@@ -88,6 +88,22 @@ If `ANTHROPIC_API_KEY` is exported in your shell, the skill also calls Claude Ha
 
 The two fields are deliberately scoped to what only an LLM can usefully add — the static `suggested_fix` already covers the immediate command or config edit. The script (`scripts/enrich_remediation.py`) caches the system prompt, so a typical 30-warning scan runs in cents. The key is read from `os.environ['ANTHROPIC_API_KEY']` only — never accepted via argv or chat input, in keeping with the credential-handling patterns clawchain itself warns about. If the key is unset, the summary falls back to the static `suggested_fix` strings.
 
+## Run it directly (without Claude Code)
+
+The scanner is a deterministic Python script — usable from a terminal, pre-commit hook, or CI:
+
+```bash
+python3 skills/clawchain/scripts/scan.py <project_path> --out warnings.json
+python3 skills/clawchain/scripts/render_report.py warnings.json
+```
+
+Flags:
+- `--no-osv` — skip OSV.dev queries (offline / fast mode)
+- `--no-env` — skip global VS Code + MCP scans (project-only)
+- `--quiet` — suppress per-vector progress
+
+Stdlib-only, no install step. Works on Python 3.9+ (uses `tomllib` when available, falls back to a regex extractor for older Pythons). Optional: `export ANTHROPIC_API_KEY=...` and run `enrich_remediation.py` in between for AI-suggested context cards.
+
 ## Layout
 
 ```
@@ -98,10 +114,11 @@ clawchain/
 │   └── clawchain.md          ← Claude Code slash-command shim
 └── skills/
     └── clawchain/
-        ├── SKILL.md          ← full scan spec (3 vectors, 19 checks)
+        ├── SKILL.md          ← skill spec for Claude Code
         └── scripts/
-            ├── render_report.py       ← Cantina-branded HTML summary renderer
-            └── enrich_remediation.py  ← optional Claude Haiku enrichment
+            ├── scan.py                ← deterministic scanner (3 vectors, 19 checks)
+            ├── enrich_remediation.py  ← optional Claude Haiku enrichment
+            └── render_report.py       ← Cantina-branded HTML breakdown renderer
 ```
 
 ## Source
